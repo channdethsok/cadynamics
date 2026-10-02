@@ -14,8 +14,8 @@ Features:
 
 from __future__ import annotations
 
-import argparse
 import collections
+
 import datetime
 import hashlib
 import json
@@ -30,8 +30,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pyarrow.parquet as pq
 import torch
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
-# Ensure repository root is on sys.path
+
 # Ensure repository root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -237,27 +239,13 @@ def deterministic_split(part_id: str, train_ratio: float = 0.9) -> str:
     return "train" if (h % 100) < int(train_ratio * 100) else "val"
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Preprocess Zero-to-CAD into true intermediate state trajectories."
-    )
-    parser.add_argument("--max-parts", type=int, default=1000, help="Maximum parts to process (-1 for all).")
-    parser.add_argument("--max-shards", type=int, default=None, help="Maximum number of parquet shards to process.")
-    parser.add_argument("--num-workers", type=int, default=4, help="Worker processes.")
-    parser.add_argument("--input-dir", type=str, default="data/zero_to_cad_100k", help="Input root.")
-    parser.add_argument("--output-dir", type=str, default="data/processed_data", help="Output root directory.")
-    parser.add_argument("--log-dir", type=str, default="logs", help="Log output directory.")
-    parser.add_argument("--split", type=str, default="val", help="Data split to process ('train', 'val', 'test', or 'all').")
-    parser.add_argument("--shard-size", type=int, default=None, help="Deprecated (shards map 1-to-1 to parquet files).")
-    parser.add_argument("--timeout", type=float, default=15.0, help="Timeout per part in seconds.")
-    parser.add_argument("--no-render", action="store_true", help="Skip rendering for fast dry runs.")
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing .pt shards.")
-    parser.add_argument("--train-ratio", type=float, default=0.9, help="Train split ratio for unified pool hashing.")
-    parser.add_argument("--uv-grid-size", type=int, default=16, help="Discretization grid size for face UV parameter space.")
-    parser.add_argument("--curve-samples", type=int, default=16, help="Discretization samples along 3D edge curves.")
-    parser.add_argument("--image-size", type=int, default=224, help="Rendered multi-view image resolution (H=W).")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    args = parser.parse_args()
+@hydra.main(version_base="1.3", config_path="../configs", config_name="preprocess")
+def main(cfg: DictConfig) -> None:
+    args = cfg
+    if args.max_parts is None:
+        args.max_parts = -1
+
+
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -274,6 +262,7 @@ def main() -> None:
     # Setup file and stdout logging
     logger = logging.getLogger("preprocess")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     fh = logging.FileHandler(log_file, encoding="utf-8")
     fh.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s"))
     ch = logging.StreamHandler(sys.stdout)

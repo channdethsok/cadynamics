@@ -3,13 +3,14 @@ name: "debug"
 raw_data_dir: "data/zero_to_cad_100k"
 processed_dir: "data/processed_data"
 batch_size: 2
-num_workers: 0
+num_workers: 1
 pin_memory: false
 shuffle: false
 max_samples: 10
-train_split: "train"
-val_split: "val"
-test_split: "test"
+
+# Fast debug overrides for preprocessing
+max_parts: 10
+max_shards: 1
 
 # Schema 0.3.0 Data Invariant Dimensions
 face_feature_dim: 32

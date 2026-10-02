@@ -1,0 +1,39 @@
+# @package _global_
+defaults:
+  - data: zero_to_cad
+  - _self_
+
+# Target split ('train', 'val', 'test', 'all')
+split: "val"
+
+# Part and Shard limits (-1 or null for unlimited)
+# Inherits from selected data config (e.g., data=debug sets max_parts=10) or falls back to defaults
+max_parts: ${oc.select:data.max_parts,1000}
+max_shards: ${oc.select:data.max_shards,null}
+
+# Multiprocessing and resource limits (e.g., data=debug sets num_workers=0)
+num_workers: ${oc.select:data.num_workers,4}
+timeout: 15.0
+
+# Flags
+no_render: false
+overwrite: false
+train_ratio: 0.9
+
+# Preprocessing resolution defaults
+uv_grid_size: 16
+curve_samples: 16
+image_size: 224
+
+# Directories
+input_dir: "${data.raw_data_dir}"
+output_dir: "${data.processed_dir}"
+log_dir: "logs"
+seed: 42
+
+hydra:
+  run:
+    dir: outputs/preprocess/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/preprocess/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
