@@ -32,9 +32,17 @@ import pyarrow.parquet as pq
 import torch
 
 # Ensure repository root is on sys.path
+# Ensure repository root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+# Suppress VTK hardware capability warnings and stderr spam before OpenGL initialization
+import vtk
+
+if hasattr(vtk, "vtkLogger"):
+    vtk.vtkLogger.SetStderrVerbosity(vtk.vtkLogger.VERBOSITY_OFF)
+vtk.vtkObject.GlobalWarningDisplayOff()
 
 # Initialize off-screen PyVista OpenGL context before importing CadQuery/OCP
 import pyvista as pv
@@ -71,6 +79,9 @@ def _worker_process_part(
     code_str: str,
     part_meta: Dict[str, Any],
     render_images: bool = True,
+    uv_grid_size: int = 16,
+    curve_samples: int = 16,
+    image_size: int = 224,
 ) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
     """Worker task executing inside an isolated spawned process.
 
@@ -107,11 +118,13 @@ def _worker_process_part(
             except Exception:
                 reference_bbox = None
 
-        renderer = HeadlessCadRenderer() if render_images else None
+        renderer = HeadlessCadRenderer(image_size=image_size) if render_images else None
         tracer = CadQueryRuntimeTracer(
             render_images=render_images,
             renderer=renderer,
             reference_bbox=reference_bbox,
+            uv_grid_size=uv_grid_size,
+            curve_samples=curve_samples,
         )
 
         exec_env = {
@@ -156,13 +169,20 @@ def _worker_process_part(
 
 
 def _worker_entrypoint(
-    task_args: Tuple[str, Dict[str, Any], bool, float]
+    task_args: Tuple[str, Dict[str, Any], bool, float, int, int, int]
 ) -> Tuple[str, Optional[Dict[str, Any]], Optional[str], float]:
     """Top-level worker function with execution timing."""
-    code_str, part_meta, render_images, _ = task_args
+    code_str, part_meta, render_images, _, uv_grid_size, curve_samples, image_size = task_args
     t_start = time.time()
     try:
-        status, trajectory, err = _worker_process_part(code_str, part_meta, render_images)
+        status, trajectory, err = _worker_process_part(
+            code_str,
+            part_meta,
+            render_images,
+            uv_grid_size=uv_grid_size,
+            curve_samples=curve_samples,
+            image_size=image_size,
+        )
     except Exception as e:
         status, trajectory, err = "runtime_error", None, str(e)
     t_dur = time.time() - t_start
@@ -173,6 +193,9 @@ def save_shard(
     records: List[Dict[str, Any]],
     output_path: Path,
     metadata_extra: Optional[Dict[str, Any]] = None,
+    uv_grid_size: int = 16,
+    curve_samples: int = 16,
+    image_size: int = 224,
 ) -> int:
     """Save chunk of trajectories into a versioned .pt shard file matching parquet stem."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -181,9 +204,9 @@ def save_shard(
         "edge_feature_names": list(EDGE_FEATURE_NAMES),
         "command_vocab": CMD2ID,
         "reference_vocab": REF_KIND_TO_NAME,
-        "faces_uv_shape": [7, 16, 16],
-        "edges_u_shape": [6, 16],
-        "images_shape": [4, 3, 224, 224],
+        "faces_uv_shape": [7, uv_grid_size, uv_grid_size],
+        "edges_u_shape": [6, curve_samples],
+        "images_shape": [4, 3, image_size, image_size],
         "images_views": ["iso", "front", "top", "right"],
         "images_dtype": "uint8",
         "source_shard": output_path.stem + ".parquet",
@@ -230,6 +253,9 @@ def main() -> None:
     parser.add_argument("--no-render", action="store_true", help="Skip rendering for fast dry runs.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing .pt shards.")
     parser.add_argument("--train-ratio", type=float, default=0.9, help="Train split ratio for unified pool hashing.")
+    parser.add_argument("--uv-grid-size", type=int, default=16, help="Discretization grid size for face UV parameter space.")
+    parser.add_argument("--curve-samples", type=int, default=16, help="Discretization samples along 3D edge curves.")
+    parser.add_argument("--image-size", type=int, default=224, help="Rendered multi-view image resolution (H=W).")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     args = parser.parse_args()
 
@@ -268,6 +294,9 @@ def main() -> None:
     logger.info(f"Num Workers:        {args.num_workers}")
     logger.info(f"Per-Part Timeout:   {args.timeout}s")
     logger.info(f"Render Images:      {not args.no_render}")
+    logger.info(f"UV Grid Size:       {args.uv_grid_size}x{args.uv_grid_size}")
+    logger.info(f"Curve Samples:      {args.curve_samples}")
+    logger.info(f"Image Resolution:   {args.image_size}x{args.image_size}")
     logger.info(f"Overwrite:          {args.overwrite}")
     logger.info("=" * 75)
 
@@ -372,7 +401,17 @@ def main() -> None:
                     "row_idx": row_idx,
                     "ops_count": r.get("cadquery_ops_count", 0),
                 }
-                shard_tasks.append((code_str, meta, not args.no_render, args.timeout))
+                shard_tasks.append(
+                    (
+                        code_str,
+                        meta,
+                        not args.no_render,
+                        args.timeout,
+                        args.uv_grid_size,
+                        args.curve_samples,
+                        args.image_size,
+                    )
+                )
 
             if not shard_tasks:
                 continue
@@ -443,6 +482,9 @@ def main() -> None:
                         "attempted_parts": len(shard_tasks),
                         "num_successful_trajectories": len(shard_trajectories),
                     },
+                    uv_grid_size=args.uv_grid_size,
+                    curve_samples=args.curve_samples,
+                    image_size=args.image_size,
                 )
                 total_output_bytes += sz
                 saved_shards_by_split[s_name] += 1

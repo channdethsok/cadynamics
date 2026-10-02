@@ -22,10 +22,10 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-import cadquery as cq
+cq = pytest.importorskip("cadquery", reason="CadQuery is required for preprocessing test")
+pv = pytest.importorskip("pyvista", reason="PyVista is required for preprocessing test")
 
 # Off-screen PyVista context
-import pyvista as pv
 try:
     _plotter = pv.Plotter(off_screen=True, window_size=[10, 10])
     _plotter.render()

@@ -11,3 +11,4 @@ dependencies:
   - mesalib>=25.0.5,<25.1
   - pyvista
   - uv
+  - hydra-core>=1.3.7

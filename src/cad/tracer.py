@@ -29,11 +29,15 @@ class CadQueryRuntimeTracer:
         renderer: Optional[HeadlessCadRenderer] = None,
         retain_solids: bool = False,
         reference_bbox: Optional[Union[List[float], Tuple[float, ...], Any]] = None,
+        uv_grid_size: int = 16,
+        curve_samples: int = 16,
     ) -> None:
         self.render_images = render_images
         self.renderer = renderer or HeadlessCadRenderer()
         self.retain_solids = retain_solids
         self.reference_bbox = reference_bbox
+        self.uv_grid_size = uv_grid_size
+        self.curve_samples = curve_samples
 
         self.states: List[Dict[str, Any]] = []
         self.actions: List[Dict[str, Any]] = []
@@ -45,7 +49,11 @@ class CadQueryRuntimeTracer:
 
     def __enter__(self) -> "CadQueryRuntimeTracer":
         # Always initialize S_0 as the explicit empty workspace
-        s_0 = create_empty_state()
+        s_0 = create_empty_state(
+            uv_grid_size=self.uv_grid_size,
+            curve_samples=self.curve_samples,
+            image_size=self.renderer.image_size if self.renderer else 224,
+        )
         if self.render_images:
             s_0["images"] = self.renderer.render_empty()
 
@@ -110,7 +118,12 @@ class CadQueryRuntimeTracer:
                 else:
                     imgs_tensor = self.renderer.render_empty()
 
-                next_state = extract_brep_state(result, images_tensor=imgs_tensor)
+                next_state = extract_brep_state(
+                    result,
+                    uv_grid_size=self.uv_grid_size,
+                    curve_samples=self.curve_samples,
+                    images_tensor=imgs_tensor,
+                )
 
                 # Append transition
                 self.actions.append(action_context)

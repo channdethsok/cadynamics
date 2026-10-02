@@ -41,7 +41,10 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 # Initialize off-screen PyVista OpenGL context before importing CadQuery/OCP
-import pyvista as pv
+import pytest
+
+pv = pytest.importorskip("pyvista", reason="PyVista is required for visual inspection test")
+cq = pytest.importorskip("cadquery", reason="CadQuery is required for visual inspection test")
 
 try:
     _early_plotter = pv.Plotter(off_screen=True, window_size=[10, 10])
@@ -51,7 +54,6 @@ try:
 except Exception:
     pass
 
-import cadquery as cq
 from src.cad.tracer import CadQueryRuntimeTracer
 from src.cad.renderer import HeadlessCadRenderer
 from src.data.schema import CANONICAL_VIEW_NAMES, validate_trajectory

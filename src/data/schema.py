@@ -97,14 +97,18 @@ EDGE_FEATURE_NAMES: Tuple[str, ...] = (
 assert len(EDGE_FEATURE_NAMES) == 16, f"Expected exactly 16 edge features, got {len(EDGE_FEATURE_NAMES)}"
 
 
-def create_empty_state() -> Dict[str, Any]:
+def create_empty_state(
+    uv_grid_size: int = 16,
+    curve_samples: int = 16,
+    image_size: int = 224,
+) -> Dict[str, Any]:
     """Construct deterministic empty workspace state S_0 with 4 canonical views."""
-    neutral_canvas = torch.full((4, 3, 224, 224), 220, dtype=torch.uint8)
+    neutral_canvas = torch.full((4, 3, image_size, image_size), 220, dtype=torch.uint8)
     return {
         "faces_features": torch.zeros((0, 32), dtype=torch.float32),
-        "faces_uv": torch.zeros((0, 7, 16, 16), dtype=torch.float32),
+        "faces_uv": torch.zeros((0, 7, uv_grid_size, uv_grid_size), dtype=torch.float32),
         "edges_features": torch.zeros((0, 16), dtype=torch.float32),
-        "edges_u": torch.zeros((0, 6, 16), dtype=torch.float32),
+        "edges_u": torch.zeros((0, 6, curve_samples), dtype=torch.float32),
         "faces_adjacency_index": torch.zeros((2, 0), dtype=torch.long),
         "faces_adjacency_edge_indices": torch.zeros(0, dtype=torch.long),
         "edges_features_directed": torch.zeros((0, 16), dtype=torch.float32),
@@ -151,16 +155,16 @@ def validate_state(state: Dict[str, Any], is_empty: bool = False) -> None:
 
     if f_nodes.ndim != 2 or f_nodes.shape != (N_faces, 32):
         raise ValueError(f"faces_features shape mismatch: expected ({N_faces}, 32), got {f_nodes.shape}")
-    if f_uv.ndim != 4 or f_uv.shape != (N_faces, 7, 16, 16):
-        raise ValueError(f"faces_uv shape mismatch: expected ({N_faces}, 7, 16, 16), got {f_uv.shape}")
+    if f_uv.ndim != 4 or f_uv.shape[0] != N_faces or f_uv.shape[1] != 7 or f_uv.shape[2] != f_uv.shape[3]:
+        raise ValueError(f"faces_uv shape mismatch: expected ({N_faces}, 7, G, G), got {f_uv.shape}")
     if e_feats.ndim != 2 or e_feats.shape != (N_edges, 16):
         raise ValueError(f"edges_features shape mismatch: expected ({N_edges}, 16), got {e_feats.shape}")
-    if e_u.ndim != 3 or e_u.shape != (N_edges, 6, 16):
-        raise ValueError(f"edges_u shape mismatch: expected ({N_edges}, 6, 16), got {e_u.shape}")
+    if e_u.ndim != 3 or e_u.shape[0] != N_edges or e_u.shape[1] != 6:
+        raise ValueError(f"edges_u shape mismatch: expected ({N_edges}, 6, U), got {e_u.shape}")
     if adj_edges.ndim != 2 or adj_edges.shape[0] != 2:
         raise ValueError(f"faces_adjacency_index shape mismatch: expected (2, E), got {adj_edges.shape}")
-    if imgs.ndim != 4 or imgs.shape != (4, 3, 224, 224) or imgs.dtype != torch.uint8:
-        raise ValueError(f"images shape or dtype mismatch: expected uint8 (4, 3, 224, 224), got {imgs.dtype} {imgs.shape}")
+    if imgs.ndim != 4 or imgs.shape[0] != 4 or imgs.shape[1] != 3 or imgs.dtype != torch.uint8:
+        raise ValueError(f"images shape or dtype mismatch: expected uint8 (4, 3, H, W), got {imgs.dtype} {imgs.shape}")
 
     # Check finite
     if not torch.all(torch.isfinite(f_nodes)):

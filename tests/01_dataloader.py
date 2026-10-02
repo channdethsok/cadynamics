@@ -189,12 +189,96 @@ def run_benchmark(
     logger.info("=" * 70)
 
 
-def test_dataloader_batch() -> None:
+def _ensure_fixture_shard(target_dir: Path) -> Path:
+    """Ensure a valid test shard exists in target_dir / 'val'."""
+    val_dir = target_dir / "val"
+    val_dir.mkdir(parents=True, exist_ok=True)
+    shard_file = val_dir / "fixture_shard.pt"
+    if shard_file.exists():
+        return target_dir
+
+    from src.data.schema import (
+        EDGE_FEATURE_NAMES,
+        FACE_FEATURE_NAMES,
+        SCHEMA_VERSION,
+        create_empty_state,
+    )
+    from src.data.vocabulary import CMD2ID, REF_KIND_TO_NAME
+
+    records = []
+    for uid in ["fixture_part_001", "fixture_part_002"]:
+        s0 = create_empty_state()
+        s1 = create_empty_state()
+        s1["num_faces"] = 1
+        s1["num_edges"] = 1
+        s1["faces_features"] = torch.zeros((1, 32), dtype=torch.float32)
+        s1["faces_uv"] = torch.zeros((1, 7, 16, 16), dtype=torch.float32)
+        s1["edges_features"] = torch.zeros((1, 16), dtype=torch.float32)
+        s1["edges_u"] = torch.zeros((1, 6, 16), dtype=torch.float32)
+        s1["faces_adjacency_index"] = torch.zeros((2, 0), dtype=torch.long)
+        s1["faces_adjacency_edge_indices"] = torch.zeros(0, dtype=torch.long)
+        s1["edges_features_directed"] = torch.zeros((0, 16), dtype=torch.float32)
+        s1["face_edge_index"] = torch.zeros((2, 0), dtype=torch.long)
+        s1["reverse_edge_indices"] = torch.zeros(0, dtype=torch.long)
+        s1["images"] = torch.full((4, 3, 224, 224), 200, dtype=torch.uint8)
+
+        action = {
+            "cmd_id": 6,  # BOX
+            "params": torch.zeros(12, dtype=torch.float32),
+            "param_mask": torch.ones(12, dtype=torch.float32),
+            "ref_kind": 1,
+            "ref_entity_indices": torch.zeros(0, dtype=torch.long),
+            "ref_points": torch.zeros((0, 3), dtype=torch.float32),
+            "ref_directions": torch.zeros((0, 3), dtype=torch.float32),
+            "profile_points_2d": torch.zeros((64, 2), dtype=torch.float32),
+            "operation_name": "box",
+        }
+        records.append({
+            "part_id": uid,
+            "source_split": "val",
+            "source_shard": "fixture_shard.pt",
+            "source_row": 0,
+            "num_steps": 1,
+            "states": [s0, s1],
+            "actions": [action],
+        })
+
+    shard_data = {
+        "schema_version": SCHEMA_VERSION,
+        "metadata": {
+            "face_feature_names": list(FACE_FEATURE_NAMES),
+            "edge_feature_names": list(EDGE_FEATURE_NAMES),
+            "command_vocab": CMD2ID,
+            "reference_vocab": REF_KIND_TO_NAME,
+            "faces_uv_shape": [7, 16, 16],
+            "edges_u_shape": [6, 16],
+            "images_shape": [4, 3, 224, 224],
+            "images_views": ["iso", "front", "top", "right"],
+            "images_dtype": "uint8",
+            "source_shard": "fixture_shard.parquet",
+            "num_records": len(records),
+        },
+        "records": records,
+    }
+    torch.save(shard_data, shard_file)
+    return target_dir
+
+
+def test_dataloader_batch(tmp_path: Path) -> None:
     """Pytest-compatible test verifying DataLoader batch extraction and schema invariants."""
+    # Use production preprocessed shards if available; otherwise use self-contained sandbox fixture
+    val_dir = Path("data/processed_data/val")
+    if val_dir.exists() and list(val_dir.glob("*.pt")):
+        dataset_dir = "data/processed_data"
+        batch_size = 4
+    else:
+        dataset_dir = str(_ensure_fixture_shard(tmp_path))
+        batch_size = 2
+
     run_benchmark(
-        dataset_dir="data/processed_data",
+        dataset_dir=dataset_dir,
         split="val",
-        batch_size=4,
+        batch_size=batch_size,
         num_workers=0,
         max_batches=2,
     )
