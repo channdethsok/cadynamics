@@ -43,8 +43,9 @@ cadynamics/
 │
 ├── tests/
 │   ├── __init__.py
-│   ├── test_dataloader.py          # DataLoader benchmark and schema verification
-│   └── test_export_debug_samples.py# Full pipeline & visual debugging test
+│   ├── 00_preprocessing.py             # Raw Parquet ingestion -> Shard serialization -> DataLoader E2E test
+│   ├── 01_dataloader.py                # DataLoader benchmark and schema verification
+│   └── 02_visual_inspection.py         # 3D STEP/STL export, 4-view PNGs, and GIF timelapses
 │
 ├── notebooks/
 │   ├── 01_explore_transition_dataset.ipynb
@@ -141,9 +142,13 @@ for batch in loader:
 ```
 
 ### 4. Running Verification & Benchmarks
-Run the automated validation suite:
+Run the automated test suite:
 ```bash
-python tests/test_dataloader.py --num-workers 2 --batch-size 8
+# Run all tests (preprocessing, dataloading, visual debugging)
+pytest tests/
+
+# Or run the dataloader benchmark directly
+python tests/01_dataloader.py --num-workers 2 --batch-size 8
 ```
 
 ---

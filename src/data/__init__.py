@@ -2,9 +2,9 @@
 
 from src.data.dataset import (
     CADTransitionDataset,
-    ZeroToCADTransitionDataset,
     collate_transition_batch,
 )
+from src.data.transforms import symexp, symlog
 from src.data.schema import (
     CANONICAL_VIEW_NAMES,
     EDGE_FEATURE_NAMES,
@@ -57,7 +57,8 @@ __all__ = [
     "validate_action",
     "validate_trajectory",
     "validate_shard",
+    "symlog",
+    "symexp",
     "CADTransitionDataset",
-    "ZeroToCADTransitionDataset",
     "collate_transition_batch",
 ]

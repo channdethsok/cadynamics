@@ -32,7 +32,7 @@ import OCP.TopExp as TopExp
 import OCP.TopoDS as TopoDS
 import OCP.TopTools as TopTools
 
-from src.cad.action_extractor import symlog
+from src.data.transforms import symlog
 from src.data.schema import EDGE_FEATURE_NAMES, FACE_FEATURE_NAMES, create_empty_state
 
 logger = logging.getLogger(__name__)
@@ -42,11 +42,12 @@ def _extract_edges_data(
     edge_map: Any,
     edge_to_faces: Any,
     solid_center: Tuple[float, float, float],
+    curve_samples: int = 16,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Extract 16-D analytical edge features and [6, 16] sampled 1D curve parameterization."""
+    """Extract 16-D analytical edge features and sampled 1D curve parameterization."""
     n_edges = edge_map.Size()
     if n_edges == 0:
-        return torch.zeros((0, 16), dtype=torch.float32), torch.zeros((0, 6, 16), dtype=torch.float32)
+        return torch.zeros((0, 16), dtype=torch.float32), torch.zeros((0, 6, curve_samples), dtype=torch.float32)
 
     edge_features_list: List[List[float]] = []
     edges_u_list: List[np.ndarray] = []
@@ -150,10 +151,10 @@ def _extract_edges_data(
         feat_16 = ct_onehot + [scaled_len] + mid_norm + tangent + [is_closed, is_degen, convexity]
         edge_features_list.append(feat_16)
 
-        # 6. Sample 1D curve: edges_u [6, 16]
-        # Channels [x, y, z, tx, ty, tz] across 16 equidistant parameter samples
-        u_samples = np.linspace(u_min, u_max, 16)
-        u_grid = np.zeros((6, 16), dtype=np.float32)
+        # 6. Sample 1D curve: edges_u [6, curve_samples]
+        # Channels [x, y, z, tx, ty, tz] across equidistant parameter samples
+        u_samples = np.linspace(u_min, u_max, curve_samples)
+        u_grid = np.zeros((6, curve_samples), dtype=np.float32)
         for s_idx, u_val in enumerate(u_samples):
             try:
                 adaptor.D1(float(u_val), pnt, t_vec)
@@ -188,12 +189,16 @@ def _extract_edges_data(
 def extract_brep_state(
     shape_obj: Any,
     images_tensor: Optional[torch.Tensor] = None,
+    uv_grid_size: int = 16,
+    curve_samples: int = 16,
 ) -> Dict[str, Any]:
     """Extract complete B-Rep state from a CadQuery Workplane/Shape or TopoDS_Shape.
 
     Args:
         shape_obj: Workplane, Compound, Solid, or TopoDS_Shape.
         images_tensor: In-memory rendered [4, 3, 224, 224] uint8 multi-view tensor.
+        uv_grid_size: Resolution of 2D UV grid sampled on face surfaces (default: 16).
+        curve_samples: Number of 1D curve parameter points sampled on edges (default: 16).
 
     Returns:
         state: Validated State dictionary.
@@ -267,6 +272,7 @@ def extract_brep_state(
         edge_map=edge_map,
         edge_to_faces=edge_to_faces,
         solid_center=solid_center,
+        curve_samples=curve_samples,
     )
 
     # Build Face-Adjacency Graph (FAG) from shared boundary edges preserving physical edge indices
@@ -457,11 +463,11 @@ def extract_brep_state(
         assert len(feat_vector) == 32
         node_features.append(feat_vector)
 
-        # Extract 7x16x16 UV surface tensor with FaceClassifier trimming mask
+        # Extract 7xNxN UV surface tensor with FaceClassifier trimming mask
         classifier = BRepTopAdaptor.BRepTopAdaptor_FClass2d(face, 1e-6)
-        u_grid = np.linspace(umin, umax, 16)
-        v_grid = np.linspace(vmin, vmax, 16)
-        uv_tensor = np.zeros((7, 16, 16), dtype=np.float32)
+        u_grid = np.linspace(umin, umax, uv_grid_size)
+        v_grid = np.linspace(vmin, vmax, uv_grid_size)
+        uv_tensor = np.zeros((7, uv_grid_size, uv_grid_size), dtype=np.float32)
 
         for ui, u in enumerate(u_grid):
             for vi, v in enumerate(v_grid):

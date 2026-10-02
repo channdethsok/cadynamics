@@ -1,9 +1,11 @@
-# B-Rep Encoder Architecture (Exploratory / Ideas)
+# B-Rep Encoder Architecture
 name: "brep_encoder"
 
-# Input feature dimensions from CAD schema
-face_feature_dim: 128
-edge_feature_dim: 64
+# Input feature dimensions from CAD schema (linked to data config via Hydra interpolation)
+face_feature_dim: ${oc.select:data.face_feature_dim,32}
+edge_feature_dim: ${oc.select:data.edge_feature_dim,16}
+uv_channels: ${oc.select:data.uv_channels,7}
+curve_channels: ${oc.select:data.curve_channels,6}
 
 # Backbone hyperparameters
 hidden_dim: 256

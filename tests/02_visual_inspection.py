@@ -1,4 +1,4 @@
-"""Export complete debug artifacts for CAD samples into data/debug/.
+"""Visual inspection and CAD artifact export suite for representative samples.
 
 Exports for each sample:
 1. original/:
@@ -487,8 +487,8 @@ def export_debug_samples(
     return results
 
 
-def test_export_debug_samples() -> None:
-    """Pytest-compatible test verifying debug sample exporter."""
+def test_visual_inspection() -> None:
+    """Pytest-compatible test verifying visual inspection and sample export pipeline."""
     results = export_debug_samples(
         num_samples=2,
         target_uuids=DEFAULT_TARGET_UUIDS,

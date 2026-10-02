@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Set, Tuple
 
-import torch
-
 VOCABULARY_VERSION: str = "0.1.0"
 
 # Reference entity types
@@ -153,31 +151,4 @@ def get_command_id(op_name: str) -> int:
     if canonical is None or canonical not in CMD2ID:
         return CMD2ID["OTHER"]
     return CMD2ID[canonical]
-
-
-def symlog(x: torch.Tensor) -> torch.Tensor:
-    """Forward transform (Value -> Neural Space) using Symmetric Logarithm.
-
-    Maps extreme continuous CAD parameter variations (e.g. 0.5mm chamfer vs 1000mm extrusion)
-    into a smooth, symmetric, zero-centered representation without precision loss or gradient saturation.
-
-    Formula:
-        symlog(x) = sign(x) * log1p(|x|)
-    """
-    if not isinstance(x, torch.Tensor):
-        x = torch.tensor(x, dtype=torch.float32)
-    return torch.sign(x) * torch.log1p(torch.abs(x))
-
-
-def symexp(x: torch.Tensor) -> torch.Tensor:
-    """Inverse transform (Neural Space -> Value) using Symmetric Exponential.
-
-    Un-normalizes predicted neural continuous parameters back to physical CAD units.
-
-    Formula:
-        symexp(x) = sign(x) * (expm1(|x|))
-    """
-    if not isinstance(x, torch.Tensor):
-        x = torch.tensor(x, dtype=torch.float32)
-    return torch.sign(x) * torch.expm1(torch.abs(x))
 

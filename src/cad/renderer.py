@@ -24,7 +24,9 @@ import pyvista as pv
 import torch
 import vtk
 
-# Suppress VTK hardware capability warnings in headless container environments
+# Suppress VTK hardware capability warnings and stderr spam in headless container environments
+if hasattr(vtk, "vtkLogger"):
+    vtk.vtkLogger.SetStderrVerbosity(vtk.vtkLogger.VERBOSITY_OFF)
 vtk.vtkObject.GlobalWarningDisplayOff()
 logger = logging.getLogger(__name__)
 
@@ -43,9 +45,15 @@ except Exception:
 class HeadlessCadRenderer:
     """Headless off-screen renderer producing deterministic 4-view uint8 tensors."""
 
-    def __init__(self, image_size: int = 224, linear_deflection: float = 0.05) -> None:
+    def __init__(
+        self,
+        image_size: int = 224,
+        linear_deflection: float = 0.05,
+        angular_deflection: float = 0.1,
+    ) -> None:
         self.image_size = image_size
         self.linear_deflection = linear_deflection
+        self.angular_deflection = angular_deflection
         self._ensure_gl_init()
 
     def _ensure_gl_init(self) -> None:
@@ -86,7 +94,7 @@ class HeadlessCadRenderer:
             if solid is None or not hasattr(solid, "tessellate"):
                 return self.render_empty()
 
-            verts, tris = solid.tessellate(self.linear_deflection)
+            verts, tris = solid.tessellate(self.linear_deflection, self.angular_deflection)
             if len(verts) == 0 or len(tris) == 0:
                 return self.render_empty()
 
@@ -118,72 +126,77 @@ class HeadlessCadRenderer:
                     bounds = (xmin - dx, xmax + dx, ymin - dy, ymax + dy, zmin - dz, zmax + dz)
 
             plotter = pv.Plotter(off_screen=True, window_size=[self.image_size, self.image_size])
-            plotter.set_background("white")
+            try:
+                plotter.set_background("white")
 
-            # Add surface material
-            plotter.add_mesh(
-                mesh,
-                color="#CBD5E1",
-                smooth_shading=True,
-                show_edges=False,
-            )
-            # Add prominent CAD feature edge outlines
-            plotter.add_mesh(
-                feature_edges,
-                color="#1A1A1A",
-                line_width=2.0,
-            )
+                # Add surface material with balanced studio lighting
+                plotter.add_mesh(
+                    mesh,
+                    color="#CBD5E1",
+                    smooth_shading=True,
+                    show_edges=False,
+                    ambient=0.25,
+                    diffuse=0.75,
+                )
+                # Add prominent CAD feature edge outlines (if present)
+                if feature_edges.n_cells > 0:
+                    plotter.add_mesh(
+                        feature_edges,
+                        color="#1A1A1A",
+                        line_width=2.0,
+                    )
 
-            views_imgs: List[torch.Tensor] = []
+                views_imgs: List[torch.Tensor] = []
 
-            # 1. Isometric View
-            plotter.camera_position = "iso"
-            if bounds is not None:
-                plotter.reset_camera(bounds=bounds)
-            else:
-                plotter.reset_camera()
-            plotter.camera.zoom(0.85)
-            plotter.render()
-            img_iso = plotter.screenshot(return_img=True, transparent_background=False)
-            views_imgs.append(self._to_chw_tensor(img_iso))
+                # 1. Isometric View
+                plotter.camera_position = "iso"
+                if bounds is not None:
+                    plotter.reset_camera(bounds=bounds)
+                else:
+                    plotter.reset_camera()
+                plotter.camera.zoom(0.85)
+                plotter.render()
+                img_iso = plotter.screenshot(return_img=True, transparent_background=False)
+                views_imgs.append(self._to_chw_tensor(img_iso))
 
-            # 2. Front View (XZ plane, looking along -Y)
-            plotter.view_xz()
-            if bounds is not None:
-                plotter.reset_camera(bounds=bounds)
-            else:
-                plotter.reset_camera()
-            plotter.camera.zoom(0.85)
-            plotter.render()
-            img_front = plotter.screenshot(return_img=True, transparent_background=False)
-            views_imgs.append(self._to_chw_tensor(img_front))
+                # 2. Front View (XZ plane, looking along -Y)
+                plotter.view_xz()
+                if bounds is not None:
+                    plotter.reset_camera(bounds=bounds)
+                else:
+                    plotter.reset_camera()
+                plotter.camera.zoom(0.85)
+                plotter.render()
+                img_front = plotter.screenshot(return_img=True, transparent_background=False)
+                views_imgs.append(self._to_chw_tensor(img_front))
 
-            # 3. Top View (XY plane, looking along -Z)
-            plotter.view_xy()
-            if bounds is not None:
-                plotter.reset_camera(bounds=bounds)
-            else:
-                plotter.reset_camera()
-            plotter.camera.zoom(0.85)
-            plotter.render()
-            img_top = plotter.screenshot(return_img=True, transparent_background=False)
-            views_imgs.append(self._to_chw_tensor(img_top))
+                # 3. Top View (XY plane, looking along -Z)
+                plotter.view_xy()
+                if bounds is not None:
+                    plotter.reset_camera(bounds=bounds)
+                else:
+                    plotter.reset_camera()
+                plotter.camera.zoom(0.85)
+                plotter.render()
+                img_top = plotter.screenshot(return_img=True, transparent_background=False)
+                views_imgs.append(self._to_chw_tensor(img_top))
 
-            # 4. Right View (YZ plane, looking along -X)
-            plotter.view_yz()
-            if bounds is not None:
-                plotter.reset_camera(bounds=bounds)
-            else:
-                plotter.reset_camera()
-            plotter.camera.zoom(0.85)
-            plotter.render()
-            img_right = plotter.screenshot(return_img=True, transparent_background=False)
-            views_imgs.append(self._to_chw_tensor(img_right))
+                # 4. Right View (YZ plane, looking along -X)
+                plotter.view_yz()
+                if bounds is not None:
+                    plotter.reset_camera(bounds=bounds)
+                else:
+                    plotter.reset_camera()
+                plotter.camera.zoom(0.85)
+                plotter.render()
+                img_right = plotter.screenshot(return_img=True, transparent_background=False)
+                views_imgs.append(self._to_chw_tensor(img_right))
 
-            plotter.close()
+                # Stack into [4, 3, H, W] uint8
+                return torch.stack(views_imgs, dim=0)
 
-            # Stack into [4, 3, H, W] uint8
-            return torch.stack(views_imgs, dim=0)
+            finally:
+                plotter.close()
 
         except Exception as e:
             logger.debug(f"Headless rendering error: {e}")

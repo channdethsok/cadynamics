@@ -1,7 +1,7 @@
 # Zero-to-CAD-100K Dataset Configuration
 name: "zero_to_cad_100k"
 raw_data_dir: "data/zero_to_cad_100k"
-processed_dir: "data/processed"
+processed_dir: "data/processed_data"
 batch_size: 32
 num_workers: 4
 pin_memory: true
@@ -9,3 +9,14 @@ shuffle: true
 train_split: "train"
 val_split: "val"
 test_split: "test"
+
+# Schema 0.3.0 Data Invariant Dimensions
+face_feature_dim: 32          # 8 surface one-hot + metric props + normal + inertia
+edge_feature_dim: 16          # 6 curve one-hot + SymLog length + tangent + convexity
+uv_channels: 7                # (x, y, z, nx, ny, nz, mask)
+uv_grid_size: [16, 16]        # Parametric surface grid resolution
+curve_channels: 6             # (x, y, z, tx, ty, tz)
+curve_samples: 16             # 1D curve parameter samples
+image_shape: [4, 3, 224, 224] # 4 canonical perspectives (iso, front, top, right)
+action_param_dim: 12          # 12-D action summary vector
+profile_points: 64            # 2D sketch profile points [64, 2]

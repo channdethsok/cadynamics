@@ -9,7 +9,6 @@ Captured BEFORE topology-modifying operations are executed to ensure:
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -36,36 +35,9 @@ from src.data.vocabulary import (
     REF_WORKPLANE,
     get_command_id,
 )
+from src.data.transforms import symexp, symlog
 
 logger = logging.getLogger(__name__)
-
-
-def symlog(x: torch.Tensor) -> torch.Tensor:
-    """Forward transform (Value -> Neural Space) using Symmetric Logarithm.
-
-    Maps continuous CAD parameters (with extreme variations across orders of magnitude,
-    e.g. 0.5mm chamfer vs 1000mm extrusion) into a smooth, symmetric, zero-centered representation
-    without precision loss, gradient vanishing, or saturation.
-
-    Formula:
-        symlog(x) = sign(x) * log1p(|x|)
-    """
-    if not isinstance(x, torch.Tensor):
-        x = torch.tensor(x, dtype=torch.float32)
-    return torch.sign(x) * torch.log1p(torch.abs(x))
-
-
-def symexp(x: torch.Tensor) -> torch.Tensor:
-    """Inverse transform (Neural Space -> Value) using Symmetric Exponential.
-
-    Un-normalizes predicted neural continuous parameters back to physical CAD units.
-
-    Formula:
-        symexp(x) = sign(x) * (expm1(|x|))
-    """
-    if not isinstance(x, torch.Tensor):
-        x = torch.tensor(x, dtype=torch.float32)
-    return torch.sign(x) * torch.expm1(torch.abs(x))
 
 
 def capture_action_context(
@@ -188,16 +160,35 @@ def _extract_references(
     ref_dirs_list: List[List[float]] = []
     ref_kind = REF_NONE
 
-    if len(selected_objects) > 0:
-        first_obj = selected_objects[0]
+    target_objects = list(selected_objects)
+    # If selected_objects only contains sketch geometry (Wires) or is empty,
+    # inspect parent workplanes for the underlying topological reference (e.g. faces(">Z").workplane().circle(...))
+    if not target_objects or all(
+        hasattr(o, "wrapped") and isinstance(o.wrapped, (TopoDS.TopoDS_Wire, TopoDS.TopoDS_Compound))
+        for o in target_objects
+    ):
+        parent_cursor = getattr(workplane, "parent", None)
+        while parent_cursor is not None:
+            p_objs = getattr(parent_cursor, "objects", [])
+            if p_objs and any(
+                hasattr(o, "wrapped")
+                and isinstance(o.wrapped, (TopoDS.TopoDS_Face, TopoDS.TopoDS_Edge, TopoDS.TopoDS_Vertex))
+                for o in p_objs
+            ):
+                target_objects = list(p_objs)
+                break
+            parent_cursor = getattr(parent_cursor, "parent", None)
+
+    if len(target_objects) > 0:
+        first_obj = target_objects[0]
 
         # Case A: Selected Faces
-        if hasattr(first_obj, "geomType") or (
+        if isinstance(first_obj, cq.Face) or (
             hasattr(first_obj, "wrapped")
             and isinstance(first_obj.wrapped, TopoDS.TopoDS_Face)
         ):
             ref_kind = REF_FACE
-            for obj in selected_objects:
+            for obj in target_objects:
                 occ_face = obj.wrapped if hasattr(obj, "wrapped") else obj
                 if hasattr(occ_face, "Orientation"):
                     # Find matching face index in S_k strictly using IsSame
@@ -258,7 +249,7 @@ def _extract_references(
             first_obj.wrapped, TopoDS.TopoDS_Edge
         ):
             ref_kind = REF_EDGE
-            for obj in selected_objects:
+            for obj in target_objects:
                 occ_edge = obj.wrapped if hasattr(obj, "wrapped") else obj
                 # Find matching physical edge in prev_edge_map
                 e_idx = -1
@@ -301,7 +292,7 @@ def _extract_references(
             first_obj.wrapped, TopoDS.TopoDS_Vertex
         ):
             ref_kind = REF_VERTEX
-            for obj in selected_objects:
+            for obj in target_objects:
                 try:
                     c = obj.Center()
                     ref_points_list.append([float(c.x), float(c.y), float(c.z)])
@@ -418,33 +409,28 @@ def _build_12d_summary(
     return params_raw, params, mask
 
 
+def _extract_number(val: Any) -> Optional[float]:
+    """Safely extract a float, excluding boolean flags and non-numeric types."""
+    if isinstance(val, (int, float, np.number)) and not isinstance(val, (bool, np.bool_)):
+        return float(val)
+    if isinstance(val, str):
+        # Parse only pure numeric strings (e.g. "15.5", "-2.0"), avoiding selector strings like ">Z[1]"
+        try:
+            return float(val.strip())
+        except ValueError:
+            return None
+    return None
+
+
 def _extract_raw_numeric_args(
     op_name: str, args: Tuple[Any, ...], kwargs: Dict[str, Any]
 ) -> List[float]:
     """Extract numeric parameters from method call arguments."""
     nums: List[float] = []
-    for a in args:
-        if isinstance(a, (int, float)) and not isinstance(a, bool):
-            nums.append(float(a))
-        elif isinstance(a, str):
-            found = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", a)
-            for item in found:
-                if item and item != ".":
-                    try:
-                        nums.append(float(item))
-                    except ValueError:
-                        pass
-    for k, v in kwargs.items():
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            nums.append(float(v))
-        elif isinstance(v, str):
-            found = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", v)
-            for item in found:
-                if item and item != ".":
-                    try:
-                        nums.append(float(item))
-                    except ValueError:
-                        pass
+    for val in (*args, *kwargs.values()):
+        num = _extract_number(val)
+        if num is not None:
+            nums.append(num)
     return nums
 
 

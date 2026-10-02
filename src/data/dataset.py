@@ -2,7 +2,6 @@
 
 This module provides:
   - CADTransitionDataset: PyTorch Dataset yielding Schema 0.3.0 transition pairs (S_t, A_t, S_{t+1})
-  - ZeroToCADTransitionDataset: Backwards-compatible alias for CADTransitionDataset
   - collate_transition_batch: Batched collation supporting both fixed-size tensors (images, actions)
     and variable-sized graph representations (faces, edges, adjacency) with PyG compatibility.
 """
@@ -169,7 +168,9 @@ class CADTransitionDataset(Dataset):
 
         if self.use_imagenet_norm:
             # Broadcast across [4, 3, 224, 224]
-            img = (img - IMAGENET_MEAN) / IMAGENET_STD
+            mean = IMAGENET_MEAN.to(device=img.device, dtype=img.dtype)
+            std = IMAGENET_STD.to(device=img.device, dtype=img.dtype)
+            img = (img - mean) / std
 
         return img
 
@@ -270,10 +271,6 @@ class CADTransitionDataset(Dataset):
             "next_state": next_state,
             "metadata": metadata,
         }
-
-
-# Backwards compatibility alias
-ZeroToCADTransitionDataset = CADTransitionDataset
 
 
 def _collate_state_graphs(states: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -396,3 +393,9 @@ def collate_transition_batch(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
         }
 
     return batch_dict
+
+
+__all__ = [
+    "CADTransitionDataset",
+    "collate_transition_batch",
+]

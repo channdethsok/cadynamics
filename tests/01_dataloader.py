@@ -189,6 +189,17 @@ def run_benchmark(
     logger.info("=" * 70)
 
 
+def test_dataloader_batch() -> None:
+    """Pytest-compatible test verifying DataLoader batch extraction and schema invariants."""
+    run_benchmark(
+        dataset_dir="data/processed_data",
+        split="val",
+        batch_size=4,
+        num_workers=0,
+        max_batches=2,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="CADynamics DataLoader verification script.")
     parser.add_argument("--root-dir", type=str, default="data/processed_data")

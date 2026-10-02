@@ -1,7 +1,7 @@
 # Debug / Fast Dry-Run Data Configuration
 name: "debug"
 raw_data_dir: "data/zero_to_cad_100k"
-processed_dir: "data/processed"
+processed_dir: "data/processed_data"
 batch_size: 2
 num_workers: 0
 pin_memory: false
@@ -10,3 +10,14 @@ max_samples: 10
 train_split: "train"
 val_split: "val"
 test_split: "test"
+
+# Schema 0.3.0 Data Invariant Dimensions
+face_feature_dim: 32
+edge_feature_dim: 16
+uv_channels: 7
+uv_grid_size: [16, 16]
+curve_channels: 6
+curve_samples: 16
+image_shape: [4, 3, 224, 224]
+action_param_dim: 12
+profile_points: 64

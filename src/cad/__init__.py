@@ -9,10 +9,11 @@ Contains:
 
 from __future__ import annotations
 
-from src.cad.action_extractor import capture_action_context, symlog
+from src.cad.action_extractor import capture_action_context
 from src.cad.brep_extractor import extract_brep_state
 from src.cad.renderer import HeadlessCadRenderer
 from src.cad.tracer import CadQueryRuntimeTracer
+from src.data.transforms import symexp, symlog
 
 __all__ = [
     "CadQueryRuntimeTracer",
@@ -20,4 +21,5 @@ __all__ = [
     "extract_brep_state",
     "capture_action_context",
     "symlog",
+    "symexp",
 ]
