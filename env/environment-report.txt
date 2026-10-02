@@ -1,0 +1,60 @@
+========================================================================
+CADynamics Environment Diagnostic Report
+Timestamp: 2026-10-01T21:05:34.354729+00:00
+========================================================================
+
+--- HOST & SYSTEM INFORMATION ---
+Platform     : Linux-6.12.107+deb13-amd64-x86_64-with-glibc2.39
+System       : Linux
+Architecture : x86_64
+Processor    : x86_64
+PRETTY_NAME="Ubuntu 24.04.4 LTS"
+NAME="Ubuntu"
+VERSION="24.04.4 LTS (Noble Numbat)"
+
+--- RUNTIME EXECUTABLE & ENVIRONMENT ---
+sys.executable    : /home/onyxia/.local/miniconda/envs/cadyn-env/bin/python
+sys.version       : 3.11.16 (main, Sep  2 2026, 23:39:52) [GCC 15.3.0]
+CONDA_PREFIX      : /home/onyxia/.local/miniconda/envs/cadyn-env
+CONDA_DEFAULT_ENV : cadyn-env
+
+--- PACKAGE MANAGERS ---
+Conda : conda 26.7.1
+uv    : uv 0.12.21 (x86_64-unknown-linux-gnu)
+pip   : pip 26.2.1 from /home/onyxia/.local/miniconda/envs/cadyn-env/lib/python3.11/site-packages/pip (python 3.11)
+
+--- ACCELERATOR & CUDA RUNTIME ---
+nvidia-smi is not available in PATH.
+PyTorch Version       : 2.5.1+cu121
+PyTorch Built CUDA    : 12.1
+PyTorch CUDA Available: False
+
+--- CAD & GEOMETRY STACK ---
+cadquery  : 2.8.0 (Location: /home/onyxia/.local/miniconda/envs/cadyn-env/lib/python3.11/site-packages/cadquery/__init__.py)
+OCP       : 7.9.3.1 (Location: /home/onyxia/.local/miniconda/envs/cadyn-env/lib/python3.11/site-packages/OCP.cpython-311-x86_64-linux-gnu.so)
+OCC       : version unavailable (Location: /home/onyxia/.local/miniconda/envs/cadyn-env/lib/python3.11/site-packages/OCC/__init__.py)
+pyvista   : 0.49.0 (Location: /home/onyxia/.local/miniconda/envs/cadyn-env/lib/python3.11/site-packages/pyvista/__init__.py)
+vtk       : 9.6.1 (Location: /home/onyxia/.local/miniconda/envs/cadyn-env/lib/python3.11/site-packages/vtk.py)
+
+--- GEOMETRY KERNEL VERIFICATION ---
+CadQuery test box volume: 6000.00 mm^3 (Expected: 6000.00 mm^3)
+OpenCASCADE kernel sanity check: PASSED
+
+--- PYTHON RESEARCH & ML STACK ---
+numpy       : 2.4.6
+scipy       : 1.17.1
+pandas      : 3.0.6
+pyarrow     : 25.0.1
+torchvision : 0.20.1+cu121
+torchdata   : 0.7.1
+pydantic    : 2.13.5
+pytest      : 9.1.1
+PIL         : 12.3.0
+
+--- PACKAGE OWNERSHIP BREAKDOWN ---
+Conda-managed packages count : 345
+uv/PyPI-managed packages count: 42
+
+========================================================================
+Diagnostic Report Completed Successfully
+========================================================================

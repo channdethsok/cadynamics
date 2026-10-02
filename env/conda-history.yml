@@ -1,0 +1,11 @@
+name: cadyn-env
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - cadquery
+  - mesalib[version='>=25.0.5,<25.1']
+  - pythonocc-core
+  - uv
+  - pyvista
+prefix: /home/onyxia/.local/miniconda/envs/cadyn-env

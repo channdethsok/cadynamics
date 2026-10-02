@@ -1,0 +1,14 @@
+# B-Rep Encoder Architecture (Exploratory / Ideas)
+name: "brep_encoder"
+
+# Input feature dimensions from CAD schema
+face_feature_dim: 128
+edge_feature_dim: 64
+
+# Backbone hyperparameters
+hidden_dim: 256
+num_heads: 8
+num_layers: 6
+dropout: 0.1
+activation: "gelu"
+pooling: "mean"

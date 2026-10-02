@@ -1,0 +1,8 @@
+# Dummy Model Placeholder
+# Used to verify pipeline end-to-end without real architecture overhead
+name: "dummy"
+input_dim: 64
+hidden_dim: 128
+output_dim: 64
+num_layers: 2
+dropout: 0.0

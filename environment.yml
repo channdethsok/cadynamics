@@ -1,0 +1,13 @@
+name: cadyn-env
+
+channels:
+  - conda-forge
+  - nodefaults
+
+dependencies:
+  - python=3.11
+  - cadquery=2.8.0
+  - pythonocc-core=7.9.3
+  - mesalib>=25.0.5,<25.1
+  - pyvista
+  - uv

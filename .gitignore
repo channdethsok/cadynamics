@@ -3,10 +3,16 @@ __pycache__/
 *.py[codz]
 *$py.class
 
-data/
-
-# C extensions
-*.so
+/data/
+/debug_renders/
+/logs/
+/.tools/
+/.archived/
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.log
 
 # Distribution / packaging
 .Python
@@ -155,7 +161,7 @@ activemq-data/
 .env
 .envrc
 .venv
-env/
+# env/ is used for environment snapshot specifications
 venv/
 ENV/
 env.bak/
@@ -220,3 +226,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Hydra experiment outputs
+outputs/
+multirun/

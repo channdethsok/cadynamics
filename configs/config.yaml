@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - data: zero_to_cad
+  - model: dummy
+  - trainer: default
+  - _self_
+
+seed: 42
+exp_name: "cadynamics_dev"
+
+# Output directory configuration for Hydra runs
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

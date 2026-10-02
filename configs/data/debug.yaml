@@ -1,0 +1,12 @@
+# Debug / Fast Dry-Run Data Configuration
+name: "debug"
+raw_data_dir: "data/zero_to_cad_100k"
+processed_dir: "data/processed"
+batch_size: 2
+num_workers: 0
+pin_memory: false
+shuffle: false
+max_samples: 10
+train_split: "train"
+val_split: "val"
+test_split: "test"
